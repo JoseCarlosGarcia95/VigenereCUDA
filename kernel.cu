@@ -15,11 +15,18 @@ typedef enum {
 
 __global__ void internal_vigenere(char * dev_text, const char * dev_key, int keyLen, int len) {
 	unsigned int i;
+	char c;
 	i = threadIdx.x + blockIdx.x * blockDim.x;
-	if (dev_text[i] != ' ' && dev_text[i] != '\n' && dev_text[i] != '.' && dev_text[i] != ',')
-		dev_text[i] = 'a' + ((dev_text[i] - 'a') + ((dev_key[i % keyLen] - 'a')) % ('Z' - 'a'));
+	
+	c = dev_text[i];
+	if (c >= 'a' && c <= 'z')
+		c += 'A' - 'a';
+	else if (c < 'A' || c > 'Z')
+		return;
+
+	dev_text[i] = (c - dev_key[i % keyLen] + 26) % 26 + 'A';
 }
-cipher_status generate_vigenere(const char * plainText, const char * key, char * cipherText) {
+cipher_status generate_vigenere(const char * plainText, char * key, char * cipherText) {
 	int blockSize, minGridSize, gridSize, i, keyLen, len;
 	char * dev_text, *dev_key;
 	cudaError_t cudaStatus;
@@ -27,6 +34,13 @@ cipher_status generate_vigenere(const char * plainText, const char * key, char *
 	keyLen = strlen(key);
 	len = strlen(plainText);
 
+	for (i = 0; i < keyLen; ++i)
+	{
+		if (key[i] >= 'A' && key[i] <= 'Z')
+			key[i] = key[i];
+		else if (key[i] >= 'a' && key[i] <= 'z')
+			key[i] = key[i] + 'A' - 'a';
+	}
 	
 	// Start cuda interface
 	cudaStatus = cudaSetDevice(0);
@@ -91,11 +105,11 @@ cipher_status generate_vigenere(const char * plainText, const char * key, char *
 }
 
 
-cipher_status cipher_vigenere (const char * plainText, const char * key, char * cipherText) {
+cipher_status cipher_vigenere (const char * plainText,  char * key, char * cipherText) {
 	return generate_vigenere(plainText, key, cipherText);
 }
 
-cipher_status decipher_vigenere(const char * plainText, const char * key, char * cipherText) {
+cipher_status decipher_vigenere(const char * plainText, char * key, char * cipherText) {
 	char * newKey;
 	int keyLen, i;
 
@@ -109,7 +123,7 @@ cipher_status decipher_vigenere(const char * plainText, const char * key, char *
 	return generate_vigenere(plainText, newKey, cipherText);
 }
 
-void cipherfile(const char * key, const char * src, const char * dst) {
+void cipherfile(char * key, const char * src, const char * dst) {
 	FILE *f;
 	long fsize;
 	char * plainText, *cipherText;
@@ -133,7 +147,7 @@ void cipherfile(const char * key, const char * src, const char * dst) {
 }
 
 
-void decipherfile(const char * key, const char * src, const char * dst) {
+void decipherfile(char * key, const char * src, const char * dst) {
 	FILE *f;
 	long fsize;
 	char * plainText, *cipherText;
